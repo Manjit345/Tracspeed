@@ -6,10 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from routers.auth import router as auth_router
+from routers.goals import router as goals_router
 
 app = FastAPI(title="Tracspeed API")
 
 app.include_router(auth_router)
+app.include_router(goals_router)
 
 app.add_middleware(
     CORSMiddleware,
