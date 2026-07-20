@@ -16,7 +16,7 @@ class SignInRequest(BaseModel):
     email: EmailStr
     password: str
 
-class AuthResponse(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
     user_id: str
     name: str

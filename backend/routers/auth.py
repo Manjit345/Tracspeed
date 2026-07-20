@@ -3,12 +3,12 @@ Auth Router: It handles user registration and authentication using Supabase Auth
 """
 
 from fastapi import APIRouter, HTTPException
-from models.schemas import SignUpRequest, SignInRequest, AuthResponse
+from models.schemas import SignUpRequest, SignInRequest, TokenResponse
 from db.supabase_client import supabase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/signup", response_model=AuthResponse)
+@router.post("/signup", response_model=TokenResponse)
 def signup(request: SignUpRequest):
     """
     Register a new user with an email and a password and it creates a Supabase auth user and a corresponding profile record.
@@ -17,30 +17,25 @@ def signup(request: SignUpRequest):
     try:
         response = supabase.auth.sign_up({
             "email": request.email,
-            "password": request.password
+            "password": request.password,
+            "options": {
+                "data": {"name": request.name}
+            }
         })
 
         if not response.user:
             raise HTTPException(status_code=400, detail="User signup failed")
 
-        user_id = response.user.id
-
-        supabase.table("profiles").insert({
-            "id": user_id,
-            "name": request.name,
-            "streak_count": 0
-        }).execute()
-
-        return AuthResponse(
+        return TokenResponse(
             access_token=response.session.access_token,
-            user_id=user_id,
+            user_id=response.user.id,
             name=request.name
         )
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/signin", response_model=AuthResponse)
+@router.post("/signin", response_model=TokenResponse)
 def signin(request: SignInRequest):
     """
     Sign in an existing user with their email and password and it returns a Supabase JWT access token for subsequent requests.
@@ -59,7 +54,7 @@ def signin(request: SignInRequest):
             "id", response.user.id
         ).single().execute()
 
-        return AuthResponse(
+        return TokenResponse(
             access_token=response.session.access_token,
             user_id=response.user.id,
             name=profile.data["name"]
