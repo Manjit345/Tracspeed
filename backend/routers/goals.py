@@ -14,6 +14,7 @@ def create_goal(goal: GoalCreate, user_id: str = Depends(get_current_user)):
     """
     Create a new goal for today or a future date. The coach will reference this goal during check-ins and evening reviews.
     """
+
     try:
         response = supabase.table("goals").insert({
             "user_id": user_id,
@@ -32,6 +33,7 @@ def get_today_goals(user_id: str = Depends(get_current_user)):
     """
     Retrieve all goals for today which is used by the morning check-in and coach to understand today's commitments.
     """
+
     try:
         response = supabase.table("goals").select("*").eq(
             "user_id", user_id
@@ -46,6 +48,7 @@ def get_all_goals(user_id: str = Depends(get_current_user)):
     """
     Retrieve all goals for the authenticated user which is used by the analytics dashboard and coach pattern detection.
     """
+
     try:
         response = supabase.table("goals").select("*").eq(
             "user_id", user_id
@@ -64,6 +67,7 @@ def update_goal_status(
     """
     Update the status of a goal whether it is completed, partial, or missed. This is called during evening review when the user reports on their day.
     """
+    
     try:
         response = supabase.table("goals").update({
             "status": update.status
