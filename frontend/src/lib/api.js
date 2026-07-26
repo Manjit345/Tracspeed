@@ -66,3 +66,41 @@ export const api = {
         headers: getHeaders()
     }).then(r => r.json()),
 }
+
+// Streaming coach message — reads Server-Sent Events chunk by chunk
+export const sendMessageStream = async (content, onChunk, onDone) => {
+    const token = localStorage.getItem("access_token")
+    const response = await fetch(`${API_URL}/coach/message/stream`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ content })
+    })
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        const parts = buffer.split("\n\n")
+        buffer = parts.pop()
+
+        for (const part of parts) {
+            if (part.startsWith("data: ")) {
+                const data = part.slice(6)
+                if (data === "[DONE]") {
+                    onDone()
+                    return
+                }
+                onChunk(data)
+            }
+        }
+    }
+}
