@@ -211,6 +211,29 @@ def chat_with_rex(user_id: str, message: str, history: list) -> str:
 
     return "I'm having trouble responding right now. Please try again."
 
+async def stream_chat_with_rex(user_id: str, message: str, history: list):
+    """
+    Stream Rex's response token by token as it's generated.
+    Yields text chunks for real-time display in the frontend.
+
+    Args:
+        user_id: The authenticated user's ID
+        message: The user's current message
+        history: Previous conversation messages
+
+    Yields:
+        str: Individual text chunks as Rex generates the response
+    """
+    messages = history + [HumanMessage(content=message)]
+
+    async for msg, metadata in coach_graph.astream(
+        {"messages": messages, "user_id": user_id},
+        stream_mode="messages"
+    ):
+        # Only stream content from the coach node, not tool nodes
+        if metadata.get("langgraph_node") == "coach" and msg.content:
+            yield msg.content
+
 # ── Unit test ─────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

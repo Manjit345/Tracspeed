@@ -5,7 +5,8 @@ Coach Router: FastAPI endpoints for Rex, Tracspeed's AI accountability coach. It
 from fastapi import APIRouter, HTTPException, Depends
 from models.schemas import CoachMessage, CoachResponse
 from db.supabase_client import supabase, get_current_user
-from agent.coach_graph import chat_with_rex
+from fastapi.responses import StreamingResponse
+from agent.coach_graph import chat_with_rex, stream_chat_with_rex
 from langchain_core.messages import HumanMessage, AIMessage
 
 router = APIRouter(prefix="/coach", tags=["coach"])
@@ -64,6 +65,26 @@ def send_message(message: CoachMessage, user_id: str = Depends(get_current_user)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/message/stream")
+async def send_message_stream(message: CoachMessage, user_id: str = Depends(get_current_user)):
+    """
+    Send a message to Rex and stream the response token by token.
+    Saves the complete message to Supabase after streaming finishes.
+    """
+    history = get_conversation_history(user_id)
+
+    async def event_generator():
+        full_response = ""
+        async for chunk in stream_chat_with_rex(user_id, message.content, history):
+            full_response += chunk
+            yield f"data: {chunk}\n\n"
+
+        # Save complete conversation after streaming finishes
+        save_messages(user_id, message.content, full_response)
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
     
 @router.get("/history")
 def get_history(user_id: str = Depends(get_current_user)):
