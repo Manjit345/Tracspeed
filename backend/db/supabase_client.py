@@ -10,9 +10,9 @@ from fastapi import Header,HTTPException
 load_dotenv()
 
 url : str = os.getenv("SUPABASE_URL")
-key : str = os.getenv("SUPABASE_KEY")
+service_key: str = os.getenv("SUPABASE_SERVICE_KEY")
 
-supabase : Client = create_client(url, key)
+supabase : Client = create_client(url, service_key)
 
 def get_current_user(authorization: str = Header(...)):
     """

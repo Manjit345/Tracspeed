@@ -43,7 +43,8 @@ def get_today_goals(user_id: str) -> str:
 
 @tool
 def get_recent_sessions(user_id: str) -> str:
-    """Retrieve the user's work sessions from the last 7 days."""
+    """Retrieve the user's work sessions from the last 7 days, with the exact
+    day-span explicitly stated so timeframes are never exaggerated."""
     try:
         week_ago = str(date.today() - timedelta(days=7))
         response = supabase.table("sessions").select("*").eq(
@@ -53,13 +54,51 @@ def get_recent_sessions(user_id: str) -> str:
         if not response.data:
             return "No sessions logged in the last 7 days."
 
+        # Calculate the actual span of days covered by this data
+        dates = [s['logged_at'][:10] for s in response.data]
+        earliest = min(dates)
+        latest = max(dates)
+        days_span = (date.fromisoformat(latest) - date.fromisoformat(earliest)).days + 1
+
         sessions_text = "\n".join([
             f"- {s['duration']} mins on {s['logged_at'][:10]}: {s.get('notes', 'no notes')}"
             for s in response.data
         ])
-        return f"Recent sessions (last 7 days):\n{sessions_text}"
+        return (f"IMPORTANT: This data covers exactly {days_span} day(s), from {earliest} "
+                f"to {latest}. State this exact timeframe. Do not describe this as 'a week' "
+                f"or 'recently over time' unless days_span is actually 7 or more.\n\n"
+                f"Sessions:\n{sessions_text}")
     except Exception as e:
         return f"Error retrieving sessions: {str(e)}"
+
+@tool
+def get_long_term_summary(user_id: str) -> str:
+    """Retrieve a summary of the user's activity over the last 90 days,
+    including total sessions, active days, and how long they've been using
+    Tracspeed. Use this when discussing long-term consistency or streaks,
+    rather than get_recent_sessions which only covers 7 days."""
+    try:
+        ninety_days_ago = str(date.today() - timedelta(days=90))
+        response = supabase.table("sessions").select("*").eq(
+            "user_id", user_id
+        ).gte("logged_at", ninety_days_ago).execute()
+
+        if not response.data:
+            return "No session history found."
+
+        dates = sorted(set(s['logged_at'][:10] for s in response.data))
+        total_sessions = len(response.data)
+        active_days = len(dates)
+        first_day = dates[0]
+        last_day = dates[-1]
+        total_days_since_start = (date.today() - date.fromisoformat(first_day)).days + 1
+
+        return (f"Long-term summary: {total_sessions} total session(s) across {active_days} "
+                f"active day(s), starting from {first_day} ({total_days_since_start} day(s) ago). "
+                f"State this exact scope explicitly — do not imply a longer history than "
+                f"{total_days_since_start} day(s).")
+    except Exception as e:
+        return f"Error retrieving long-term summary: {str(e)}"
 
 @tool
 def get_completion_rate(user_id: str) -> str:
@@ -110,7 +149,7 @@ class CoachState(TypedDict):
 
 # ── LLM setup with tool binding and LangChain fallback middleware ─────────────
 
-tools = [get_today_goals, get_recent_sessions, get_completion_rate, get_patterns]
+tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns]
 
 def get_llm_with_tools():
     """

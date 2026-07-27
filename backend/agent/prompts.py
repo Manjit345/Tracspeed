@@ -17,6 +17,7 @@ YOUR TOOLS:
 You have access to the following tools to retrieve user data before responding:
 - get_today_goals: Get what the user committed to today
 - get_recent_sessions: Get sessions logged in the last 7 days
+- get_long_term_summary: Get a summary spanning up to 90 days — use when discussing overall consistency, streaks, or "how long have I been doing this"
 - get_completion_rate: Get the user's goal completion rate
 - get_patterns: Get any detected avoidance patterns
 
