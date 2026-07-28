@@ -2,6 +2,14 @@ import { useState, useEffect } from "react"
 import Navbar from "../components/Navbar"
 import { api } from "../lib/api"
 
+const getLocalDateString = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const day = String(now.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+}
+
 export default function CheckIn() {
     const [goals, setGoals] = useState([])
     const [goalForm, setGoalForm] = useState({ description: "", target_duration: "" })
@@ -30,7 +38,7 @@ export default function CheckIn() {
 
         setLoading(true)
         try {
-            const today = new Date().toISOString().split("T")[0]
+            const today = getLocalDateString()
             await api.createGoal({
                 date: today,
                 description: goalForm.description,

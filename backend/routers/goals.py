@@ -5,6 +5,7 @@ Goals Router: It handles creation, retrieval, and status updates for daily goals
 from fastapi import APIRouter, HTTPException, Depends
 from models.schemas import GoalCreate, GoalUpdate, GoalResponse
 from db.supabase_client import supabase, get_current_user
+from agent.pattern_detector import run_pattern_detection
 from datetime import date
 
 router = APIRouter(prefix="/goals", tags=["goals"])
@@ -31,7 +32,7 @@ def create_goal(goal: GoalCreate, user_id: str = Depends(get_current_user)):
 @router.get("/today", response_model=list[GoalResponse])
 def get_today_goals(user_id: str = Depends(get_current_user)):
     """
-    Retrieve all goals for today which is used by the morning check-in and coach to understand today's commitments.
+    Retrieve all goals for today which are used by the morning check-in and coach to understand today's commitments.
     """
 
     try:
@@ -75,6 +76,11 @@ def update_goal_status(
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Goal not found")
+
+        try:
+            run_pattern_detection(user_id)
+        except Exception as pattern_error:
+            print(f"Pattern detection failed for user {user_id}: {pattern_error}")
 
         return response.data[0]
     except Exception as e:
