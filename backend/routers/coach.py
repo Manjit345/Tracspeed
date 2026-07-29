@@ -1,12 +1,13 @@
 """
-Coach Router: FastAPI endpoints for Rex, Tracspeed's AI accountability coach. It handles incoming messages, retrieves conversation history from Supabase, passes it to the coach graph, stores the response, and returns Rex's reply.
+Coach Router: FastAPI endpoints for Rex, Tracspeed's AI accountability coach. It handles incoming messages, retrieves conversation history from Supabase, passes it to the coach graph, stores the response, and returns Rex's reply. Input and output guardrails run around the coach conversation to catch distress signals, scope violations, jailbreak attempts, and unsafe responses.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from models.schemas import CoachMessage, CoachResponse
 from db.supabase_client import supabase, get_current_user
-from fastapi.responses import StreamingResponse
 from agent.coach_graph import chat_with_rex, stream_chat_with_rex
+from agent.guardrails import check_input, check_output, DISTRESS_FALLBACK, SCOPE_FALLBACK, JAILBREAK_FALLBACK, GENERIC_OUTPUT_FALLBACK
 from langchain_core.messages import HumanMessage, AIMessage
 
 router = APIRouter(prefix="/coach", tags=["coach"])
@@ -47,31 +48,76 @@ def save_messages(user_id: str, user_message: str, assistant_message: str):
 @router.post("/message", response_model=CoachResponse)
 def send_message(message: CoachMessage, user_id: str = Depends(get_current_user)):
     """
-    Send a message to Rex and get a response. Retrieves conversation history, runs the coach graph, saves both messages to Supabase, and returns Rex's reply.
+    Send a message to Rex and get a response. It runs through input guardrails first, then the coach graph, then output guardrails before returning the final response. Both messages are saved to Supabase regardless of guardrail outcome.
     """
 
     try:
-        history = get_conversation_history(user_id)
-        response_content = chat_with_rex(user_id=user_id, message=message.content, history=history)
+        input_check = check_input(message.content)
+
+        if input_check.is_distress_signal:
+            response_content = DISTRESS_FALLBACK
+        elif input_check.is_jailbreak_attempt:
+            response_content = JAILBREAK_FALLBACK
+        elif input_check.is_scope_violation:
+            response_content = SCOPE_FALLBACK
+        else:
+            history = get_conversation_history(user_id)
+            response_content = chat_with_rex(
+                user_id=user_id,
+                message=message.content,
+                history=history
+            )
+
+            output_check = check_output(response_content)
+
+            if output_check.is_shaming or output_check.gives_medical_advice or output_check.encourages_overwork or output_check.fabricates_unverified_history:
+                print(f"Output guardrail triggered for user {user_id}: {output_check.reasoning}")
+                response_content = GENERIC_OUTPUT_FALLBACK
+
         save_messages(user_id, message.content, response_content)
+
         last_msg = supabase.table("conversations").select("id").eq(
             "user_id", user_id
         ).order("created_at", desc=True).limit(1).execute()
-        conversation_id=last_msg.data[0]["id"] if last_msg.data else ""
+
+        conversation_id = last_msg.data[0]["id"] if last_msg.data else ""
 
         return CoachResponse(
             content=response_content,
             conversation_id=conversation_id
         )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/message/stream")
 async def send_message_stream(message: CoachMessage, user_id: str = Depends(get_current_user)):
     """
-    Send a message to Rex and stream the response token by token.
-    Saves the complete message to Supabase after streaming finishes.
+    Send a message to Rex and stream the response token by token. The input guardrail runs before streaming starts. The output guardrail runs asynchronously after the full response has streamed to the user and if flagged, the persisted conversation history stores a corrected fallback instead of the original, so Rex's memory and future conversations are never contaminated by a flagged response.
     """
+    input_check = check_input(message.content)
+
+    if input_check.is_distress_signal:
+        async def distress_stream():
+            yield f"data: {DISTRESS_FALLBACK}\n\n"
+            save_messages(user_id, message.content, DISTRESS_FALLBACK)
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(distress_stream(), media_type="text/event-stream")
+
+    if input_check.is_jailbreak_attempt:
+        async def jailbreak_stream():
+            yield f"data: {JAILBREAK_FALLBACK}\n\n"
+            save_messages(user_id, message.content, JAILBREAK_FALLBACK)
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(jailbreak_stream(), media_type="text/event-stream")
+
+    if input_check.is_scope_violation:
+        async def scope_stream():
+            yield f"data: {SCOPE_FALLBACK}\n\n"
+            save_messages(user_id, message.content, SCOPE_FALLBACK)
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(scope_stream(), media_type="text/event-stream")
+
     history = get_conversation_history(user_id)
 
     async def event_generator():
@@ -80,12 +126,18 @@ async def send_message_stream(message: CoachMessage, user_id: str = Depends(get_
             full_response += chunk
             yield f"data: {chunk}\n\n"
 
-        # Save complete conversation after streaming finishes
-        save_messages(user_id, message.content, full_response)
+        output_check = check_output(full_response)
+
+        if output_check.is_shaming or output_check.gives_medical_advice or output_check.encourages_overwork or output_check.fabricates_unverified_history:
+            print(f"Output guardrail triggered for user {user_id}: {output_check.reasoning}")
+            save_messages(user_id, message.content, GENERIC_OUTPUT_FALLBACK)
+        else:
+            save_messages(user_id, message.content, full_response)
+
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-    
+
 @router.get("/history")
 def get_history(user_id: str = Depends(get_current_user)):
     """
