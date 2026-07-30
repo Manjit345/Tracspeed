@@ -8,6 +8,7 @@ from models.schemas import CoachMessage, CoachResponse
 from db.supabase_client import supabase, get_current_user
 from agent.coach_graph import chat_with_rex, stream_chat_with_rex
 from agent.guardrails import check_input, check_output, DISTRESS_FALLBACK, SCOPE_FALLBACK, JAILBREAK_FALLBACK, GENERIC_OUTPUT_FALLBACK
+from agent.evaluator import run_evaluation
 from langchain_core.messages import HumanMessage, AIMessage
 
 router = APIRouter(prefix="/coach", tags=["coach"])
@@ -82,6 +83,11 @@ def send_message(message: CoachMessage, user_id: str = Depends(get_current_user)
 
         conversation_id = last_msg.data[0]["id"] if last_msg.data else ""
 
+        try:
+            run_evaluation(conversation_id, message.content, response_content)
+        except Exception as e:
+            print(f"Evaluation failed to run: {str(e)}")
+
         return CoachResponse(
             content=response_content,
             conversation_id=conversation_id
@@ -130,9 +136,21 @@ async def send_message_stream(message: CoachMessage, user_id: str = Depends(get_
 
         if output_check.is_shaming or output_check.gives_medical_advice or output_check.encourages_overwork or output_check.fabricates_unverified_history:
             print(f"Output guardrail triggered for user {user_id}: {output_check.reasoning}")
-            save_messages(user_id, message.content, GENERIC_OUTPUT_FALLBACK)
+            saved_response = GENERIC_OUTPUT_FALLBACK
         else:
-            save_messages(user_id, message.content, full_response)
+            saved_response = full_response
+
+        save_messages(user_id, message.content, saved_response)
+
+        last_msg = supabase.table("conversations").select("id").eq(
+            "user_id", user_id
+        ).order("created_at", desc=True).limit(1).execute()
+        conversation_id = last_msg.data[0]["id"] if last_msg.data else ""
+
+        try:
+            run_evaluation(conversation_id, message.content, saved_response)
+        except Exception as e:
+            print(f"Evaluation failed to run: {str(e)}")
 
         yield "data: [DONE]\n\n"
 
