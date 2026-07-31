@@ -1,7 +1,16 @@
 """
 Evaluator: Async post-hoc scoring of Rex's coach responses using DeepEval. It runs independently of the real-time guardrails and is for monitoring quality trends over time, not blocking bad responses live. The scores are stored in the evaluations table, linked to the conversation they assess.
+
+Note: save_evaluation() uses raw requests instead of the supabase-py client
+specifically for this table. supabase-py's client consistently failed RLS
+checks on inserts to evaluations despite identical, verified-correct RLS
+policies and service role key — raw HTTP requests against Supabase's REST
+API succeed reliably, isolating this to a supabase-py client bug rather
+than a configuration issue.
 """
 
+import os
+import requests
 from dotenv import load_dotenv
 from deepeval.metrics import AnswerRelevancyMetric, HallucinationMetric
 from deepeval.test_case import LLMTestCase
@@ -11,6 +20,9 @@ from db.supabase_client import supabase
 load_dotenv()
 
 gemini_judge = GeminiModel(model="gemini-3.6-flash")
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 def evaluate_conversation(user_message: str, rex_response: str, retrieved_context: str = "") -> dict:
     """
@@ -61,6 +73,8 @@ def evaluate_conversation(user_message: str, rex_response: str, retrieved_contex
 def save_evaluation(conversation_id: str, scores: dict):
     """
     Persist evaluation scores to the evaluations table, linked to the specific conversation turn they assess. It flags the record if either score crosses concerning thresholds, for easy filtering later.
+
+    Uses raw requests against Supabase's REST API directly rather than the supabase-py client, as a workaround for a library-specific RLS bug isolated during debugging.
     """
     try:
         flagged = False
@@ -69,13 +83,26 @@ def save_evaluation(conversation_id: str, scores: dict):
         if scores["hallucination_score"] is not None and scores["hallucination_score"] > 0.5:
             flagged = True
 
-        supabase.table("evaluations").insert({
-            "conversation_id": conversation_id,
-            "tone_score": None,  # reserved for a future tone metric pass
-            "hallucination_score": scores["hallucination_score"],
-            "relevancy_score": scores["relevancy_score"],
-            "flagged": flagged
-        }).execute()
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/evaluations",
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            },
+            json={
+                "conversation_id": conversation_id,
+                "tone_score": None,
+                "hallucination_score": scores["hallucination_score"],
+                "relevancy_score": scores["relevancy_score"],
+                "flagged": flagged
+            }
+        )
+
+        if response.status_code not in (200, 201):
+            print(f"Failed to save evaluation for conversation {conversation_id}: {response.text}")
+
     except Exception as e:
         print(f"Failed to save evaluation for conversation {conversation_id}: {str(e)}")
 
