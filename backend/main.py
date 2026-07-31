@@ -9,6 +9,7 @@ from routers.auth import router as auth_router
 from routers.goals import router as goals_router
 from routers.sessions import router as sessions_router
 from routers.coach import router as coach_router
+from routers.analytics import router as analytics_router
 
 app = FastAPI(title="Tracspeed API")
 
@@ -16,6 +17,7 @@ app.include_router(auth_router)
 app.include_router(goals_router)
 app.include_router(sessions_router)
 app.include_router(coach_router)
+app.include_router(analytics_router)
 
 app.add_middleware(
     CORSMiddleware,
