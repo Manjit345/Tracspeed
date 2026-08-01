@@ -4,6 +4,7 @@ import Login from "./pages/Login"
 import Dashboard from "./pages/Dashboard"
 import Coach from "./pages/Coach"
 import CheckIn from "./pages/CheckIn"
+import Analytics from "./pages/Analytics"
 
 // Protected route — redirects to login if not authenticated
 function ProtectedRoute({ children }) {
@@ -27,6 +28,11 @@ function App() {
       <Route path="/checkin" element={
         <ProtectedRoute>
           <CheckIn />
+        </ProtectedRoute>
+      } />
+      <Route path="/analytics" element={
+        <ProtectedRoute>
+          <Analytics />
         </ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to="/" replace />} />

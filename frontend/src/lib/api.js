@@ -65,6 +65,27 @@ export const api = {
     getHistory: () => fetch(`${API_URL}/coach/history`, {
         headers: getHeaders()
     }).then(r => r.json()),
+
+    // Analytics
+    getOverview: () => fetch(`${API_URL}/analytics/overview`, {
+        headers: getHeaders()
+    }).then(r => r.json()),
+
+    getCompletionTrend: () => fetch(`${API_URL}/analytics/completion-trend`, {
+        headers: getHeaders()
+    }).then(r => r.json()),
+
+    getSessionActivity: () => fetch(`${API_URL}/analytics/session-activity`, {
+        headers: getHeaders()
+    }).then(r => r.json()),
+
+    getGoalBreakdown: () => fetch(`${API_URL}/analytics/goal-breakdown`, {
+        headers: getHeaders()
+    }).then(r => r.json()),
+
+    getRecentActivity: () => fetch(`${API_URL}/analytics/recent-activity`, {
+        headers: getHeaders()
+    }).then(r => r.json()),
 }
 
 // Streaming coach message — reads Server-Sent Events chunk by chunk
