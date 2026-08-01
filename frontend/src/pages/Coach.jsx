@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import Navbar from "../components/Navbar"
 import { api, sendMessageStream } from "../lib/api"
+import { colors, fonts, radius } from "../theme"
 
 export default function Coach() {
     const [messages, setMessages] = useState([])
@@ -39,7 +40,6 @@ export default function Coach() {
         setInput("")
         setLoading(true)
 
-        // Add an empty assistant message that fills progressively as chunks arrive
         setMessages(prev => [...prev, { role: "assistant", content: "", created_at: new Date().toISOString() }])
 
         try {
@@ -77,22 +77,65 @@ export default function Coach() {
         }
     }
 
+    const RexAvatar = () => (
+        <div style={{
+            width: "28px",
+            height: "28px",
+            borderRadius: "50%",
+            backgroundColor: colors.accent,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: fonts.heading,
+            fontSize: "13px",
+            fontWeight: "600",
+            color: "#1a1210",
+            flexShrink: 0
+        }}>
+            R
+        </div>
+    )
+
+    const TypingDots = () => (
+        <div style={{ display: "flex", gap: "4px", padding: "4px 0" }}>
+            {[0, 1, 2].map(i => (
+                <span key={i} style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    backgroundColor: colors.textMuted,
+                    animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`
+                }} />
+            ))}
+            <style>{`@keyframes pulse { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }`}</style>
+        </div>
+    )
+
     return (
-        <div style={{ minHeight: "100vh", backgroundColor: "#0f1117", display: "flex", flexDirection: "column" }}>
+        <div style={{ minHeight: "100vh", backgroundColor: colors.bg, display: "flex", flexDirection: "column", fontFamily: fonts.body }}>
             <Navbar />
 
             <div style={{
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
-                maxWidth: "700px",
+                maxWidth: "720px",
                 margin: "0 auto",
                 width: "100%",
-                padding: "24px 24px 0 24px"
+                padding: "32px 24px 0 24px"
             }}>
-                <h1 style={{ fontSize: "20px", fontWeight: "700", color: "#ffffff", marginBottom: "20px" }}>
-                    Rex
-                </h1>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "28px" }}>
+                    <RexAvatar />
+                    <h1 style={{
+                        fontFamily: fonts.heading,
+                        fontSize: "22px",
+                        fontWeight: "500",
+                        color: colors.textPrimary,
+                        letterSpacing: "-0.01em"
+                    }}>
+                        Rex
+                    </h1>
+                </div>
 
                 {/* Messages */}
                 <div style={{
@@ -100,46 +143,68 @@ export default function Coach() {
                     overflowY: "auto",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "16px",
-                    paddingBottom: "20px"
+                    gap: "18px",
+                    paddingBottom: "24px"
                 }}>
                     {loadingHistory && (
-                        <p style={{ color: "#6b7280", fontSize: "14px" }}>Loading conversation...</p>
+                        <p style={{ color: colors.textMuted, fontSize: "14px" }}>Loading conversation...</p>
                     )}
 
                     {!loadingHistory && messages.length === 0 && (
                         <div style={{
-                            backgroundColor: "#1e2130",
-                            borderRadius: "8px",
-                            padding: "20px",
-                            color: "#9e9e9e",
-                            fontSize: "14px"
+                            display: "flex",
+                            gap: "12px",
+                            alignItems: "flex-start"
                         }}>
-                            Hey, I'm Rex. Tell me what you're working on today, or ask me how you're doing with your goals.
+                            <RexAvatar />
+                            <div style={{
+                                backgroundColor: colors.surface,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: `4px ${radius.card} ${radius.card} ${radius.card}`,
+                                padding: "14px 18px",
+                                color: colors.textSecondary,
+                                fontSize: "14px",
+                                lineHeight: "1.6",
+                                maxWidth: "80%"
+                            }}>
+                                Tell me what you're working on today, or ask me how you're doing with your goals. I'll remember it.
+                            </div>
                         </div>
                     )}
 
-                    {messages.map((msg, idx) => (
-                        <div
-                            key={idx}
-                            style={{
-                                alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                                maxWidth: "80%"
-                            }}
-                        >
-                            <div style={{
-                                backgroundColor: msg.role === "user" ? "#4f46e5" : "#1e2130",
-                                color: "#ffffff",
-                                padding: "12px 16px",
-                                borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                                fontSize: "14px",
-                                lineHeight: "1.5",
-                                minHeight: msg.role === "assistant" && msg.content === "" ? "20px" : "auto"
-                            }}>
-                                {msg.content || (msg.role === "assistant" ? "..." : "")}
+                    {messages.map((msg, idx) => {
+                        const isUser = msg.role === "user"
+                        const isLast = idx === messages.length - 1
+                        const isEmptyLoading = !isUser && msg.content === "" && loading && isLast
+
+                        return (
+                            <div
+                                key={idx}
+                                style={{
+                                    display: "flex",
+                                    gap: "12px",
+                                    alignItems: "flex-start",
+                                    flexDirection: isUser ? "row-reverse" : "row"
+                                }}
+                            >
+                                {!isUser && <RexAvatar />}
+                                <div style={{
+                                    backgroundColor: isUser ? colors.accent : colors.surface,
+                                    border: isUser ? "none" : `1px solid ${colors.border}`,
+                                    color: isUser ? "#1a1210" : colors.textPrimary,
+                                    padding: "13px 17px",
+                                    borderRadius: isUser
+                                        ? `${radius.card} 4px ${radius.card} ${radius.card}`
+                                        : `4px ${radius.card} ${radius.card} ${radius.card}`,
+                                    fontSize: "14px",
+                                    lineHeight: "1.6",
+                                    maxWidth: "78%"
+                                }}>
+                                    {isEmptyLoading ? <TypingDots /> : msg.content}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )
+                    })}
 
                     <div ref={messagesEndRef} />
                 </div>
@@ -148,8 +213,8 @@ export default function Coach() {
                 <div style={{
                     display: "flex",
                     gap: "12px",
-                    padding: "16px 0",
-                    borderTop: "1px solid #2a2f3e"
+                    padding: "18px 0 24px 0",
+                    borderTop: `1px solid ${colors.border}`
                 }}>
                     <input
                         type="text"
@@ -160,24 +225,25 @@ export default function Coach() {
                         disabled={loading}
                         style={{
                             flex: 1,
-                            padding: "12px 16px",
-                            backgroundColor: "#1e2130",
-                            border: "1px solid #2a2f3e",
-                            borderRadius: "8px",
-                            color: "#ffffff",
+                            padding: "13px 18px",
+                            backgroundColor: colors.surface,
+                            border: `1px solid ${colors.border}`,
+                            borderRadius: radius.card,
+                            color: colors.textPrimary,
                             fontSize: "14px",
-                            outline: "none"
+                            outline: "none",
+                            fontFamily: fonts.body
                         }}
                     />
                     <button
                         onClick={handleSend}
                         disabled={loading || !input.trim()}
                         style={{
-                            padding: "12px 24px",
-                            backgroundColor: loading || !input.trim() ? "#2a2f3e" : "#4f46e5",
-                            color: "#ffffff",
+                            padding: "13px 26px",
+                            backgroundColor: loading || !input.trim() ? colors.surfaceRaised : colors.accent,
+                            color: loading || !input.trim() ? colors.textMuted : "#1a1210",
                             border: "none",
-                            borderRadius: "8px",
+                            borderRadius: radius.card,
                             fontSize: "14px",
                             fontWeight: "600",
                             cursor: loading || !input.trim() ? "not-allowed" : "pointer"
