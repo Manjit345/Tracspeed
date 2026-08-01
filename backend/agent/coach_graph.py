@@ -141,6 +141,25 @@ def get_patterns(user_id: str) -> str:
     except Exception as e:
         return f"Error retrieving patterns: {str(e)}"
 
+@tool
+def get_unresolved_goals(user_id: str) -> str:
+    """Retrieve all goals that are still pending, partial, or missed, listed individually by description and original date, regardless of when they were created. Use this whenever the user asks to see, list, or work on their missed/pending/incomplete goals specifically."""
+    try:
+        response = supabase.table("goals").select("*").eq(
+            "user_id", user_id
+        ).in_("status", ["pending", "partial", "missed"]).order("date", desc=True).execute()
+
+        if not response.data:
+            return "No unresolved goals. Everything is either completed or nothing has been set."
+
+        goals_text = "\n".join([
+            f"- [{g['status'].upper()}] {g['description']} (originally set for {g['date']}, target: {g.get('target_duration', 'no duration set')} mins)"
+            for g in response.data
+        ])
+        return f"Unresolved goals (list these individually if asked, don't just summarize):\n{goals_text}"
+    except Exception as e:
+        return f"Error retrieving unresolved goals: {str(e)}"
+
 # ── Graph state ───────────────────────────────────────────────────────────────
 
 class CoachState(TypedDict):
@@ -149,7 +168,7 @@ class CoachState(TypedDict):
 
 # ── LLM setup with tool binding and LangChain fallback middleware ─────────────
 
-tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns]
+tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns, get_unresolved_goals]
 
 def get_llm_with_tools():
     """

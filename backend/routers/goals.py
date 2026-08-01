@@ -44,6 +44,21 @@ def get_today_goals(user_id: str = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/unresolved", response_model=list[GoalResponse])
+def get_unresolved_goals(user_id: str = Depends(get_current_user)):
+    """
+    Retrieve all goals that are still pending, partial, or missed, regardless of date. A goal doesn't disappear just because its original date has passed, it stays visible and actionable until the user resolves it.
+    """
+    
+    try:
+        response = supabase.table("goals").select("*").eq(
+            "user_id", user_id
+        ).in_("status", ["pending", "partial", "missed"]).order("date", desc=True).execute()
+
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/", response_model=list[GoalResponse])
 def get_all_goals(user_id: str = Depends(get_current_user)):
     """
