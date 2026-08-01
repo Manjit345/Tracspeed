@@ -119,6 +119,9 @@ export const api = {
     getGoalBreakdown: () => apiFetch(`${API_URL}/analytics/goal-breakdown`).then(r => r.json()),
 
     getRecentActivity: () => apiFetch(`${API_URL}/analytics/recent-activity`).then(r => r.json()),
+
+    getUnresolvedGoals: () => apiFetch(`${API_URL}/goals/unresolved`).then(r => r.json()),
+
 }
 
 // Streaming coach message — reads Server-Sent Events chunk by chunk

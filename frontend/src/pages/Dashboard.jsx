@@ -7,12 +7,22 @@ export default function Dashboard() {
     const navigate = useNavigate()
     const [goals, setGoals] = useState([])
     const [loading, setLoading] = useState(true)
+    const [unresolvedGoals, setUnresolvedGoals] = useState([])
 
     useEffect(() => {
         const fetchGoals = async () => {
+            setLoading(true)
             try {
-                const data = await api.getTodayGoals()
-                setGoals(Array.isArray(data) ? data : [])
+                const [todayData, unresolvedData] = await Promise.all([
+                    api.getTodayGoals(),
+                    api.getUnresolvedGoals()
+                ])
+                setGoals(Array.isArray(todayData) ? todayData : [])
+                // Exclude today's goals from the "carried over" list to avoid duplicates
+                const todayIds = new Set((Array.isArray(todayData) ? todayData : []).map(g => g.id))
+                setUnresolvedGoals(
+                    (Array.isArray(unresolvedData) ? unresolvedData : []).filter(g => !todayIds.has(g.id))
+                )
             } catch (err) {
                 console.error("Failed to fetch goals", err)
             } finally {
@@ -84,6 +94,48 @@ export default function Dashboard() {
                         </div>
                     ))}
                 </div>
+
+                {!loading && unresolvedGoals.length > 0 && (
+                    <div style={{
+                        backgroundColor: "#1e2130",
+                        borderRadius: "8px",
+                        padding: "24px",
+                        marginBottom: "24px",
+                        borderLeft: "3px solid #ff9800"
+                    }}>
+                        <h3 style={{ fontSize: "16px", fontWeight: "600", color: "#ffffff", marginBottom: "4px" }}>
+                            Carried Over
+                        </h3>
+                        <p style={{ color: "#6b7280", fontSize: "12px", marginBottom: "16px" }}>
+                            These didn't get resolved yet — still yours to finish
+                        </p>
+                        {unresolvedGoals.map(goal => (
+                            <div key={goal.id} style={{
+                                padding: "12px 0",
+                                borderBottom: "1px solid #2a2f3e",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center"
+                            }}>
+                                <div>
+                                    <p style={{ color: "#ffffff", fontSize: "14px" }}>{goal.description}</p>
+                                    <p style={{ color: "#6b7280", fontSize: "12px" }}>
+                                        Originally set for {goal.date}
+                                    </p>
+                                </div>
+                                <span style={{
+                                    fontSize: "12px",
+                                    padding: "4px 10px",
+                                    borderRadius: "12px",
+                                    backgroundColor: goal.status === "missed" ? "#b71c1c" : "#3d2d0f",
+                                    color: goal.status === "missed" ? "#f44336" : "#ff9800"
+                                }}>
+                                    {goal.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Quick Actions */}
                 <div style={{ display: "flex", gap: "16px" }}>
