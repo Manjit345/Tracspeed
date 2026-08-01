@@ -31,7 +31,7 @@ export default function Login() {
                 return
             }
 
-            setAuth(response.access_token, response.user_id, response.name)
+            setAuth(response.access_token, response.refresh_token, response.user_id, response.name)
             navigate("/")
         } catch (err) {
             setError("Something went wrong. Please try again.")

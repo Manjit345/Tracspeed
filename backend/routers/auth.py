@@ -28,6 +28,7 @@ def signup(request: SignUpRequest):
 
         return TokenResponse(
             access_token=response.session.access_token,
+            refresh_token=response.session.refresh_token,
             user_id=response.user.id,
             name=request.name
         )
@@ -56,10 +57,36 @@ def signin(request: SignInRequest):
 
         return TokenResponse(
             access_token=response.session.access_token,
+            refresh_token=response.session.refresh_token,
             user_id=response.user.id,
             name=profile.data["name"]
         )
 
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(refresh_token: str):
+    """
+    Exchange a refresh token for a new access token. It is called automatically by the frontend whenever a request returns 401, so the user's session stays alive without requiring manual re-login.
+    """
+
+    try:
+        response = supabase.auth.refresh_session(refresh_token)
+
+        if not response.session:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+        profile = supabase.table("profiles").select("name").eq(
+            "id", response.user.id
+        ).single().execute()
+
+        return TokenResponse(
+            access_token=response.session.access_token,
+            refresh_token=response.session.refresh_token,
+            user_id=response.user.id,
+            name=profile.data["name"]
+        )
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
 
