@@ -2,10 +2,11 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { api } from "../lib/api"
 import { setAuth } from "../lib/supabase"
+import { colors, fonts, radius } from "../theme"
 
 export default function Login() {
     const navigate = useNavigate()
-    const [mode, setMode] = useState("signin") // "signin" or "signup"
+    const [mode, setMode] = useState("signin")
     const [form, setForm] = useState({ email: "", password: "", name: "" })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
@@ -40,29 +41,71 @@ export default function Login() {
         }
     }
 
+    const inputStyle = {
+        width: "100%",
+        padding: "11px 14px",
+        backgroundColor: colors.bg,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.sm,
+        color: colors.textPrimary,
+        fontSize: "14px",
+        outline: "none",
+        fontFamily: fonts.body
+    }
+
+    const labelStyle = {
+        fontSize: "13px",
+        color: colors.textSecondary,
+        display: "block",
+        marginBottom: "6px"
+    }
+
     return (
         <div style={{
             minHeight: "100vh",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#0f1117"
+            backgroundColor: colors.bg,
+            fontFamily: fonts.body
         }}>
             <div style={{
                 width: "100%",
                 maxWidth: "400px",
-                padding: "40px",
-                backgroundColor: "#1e2130",
-                borderRadius: "12px",
-                border: "1px solid #2a2f3e"
+                padding: "44px",
+                backgroundColor: colors.surface,
+                borderRadius: radius.card,
+                border: `1px solid ${colors.border}`
             }}>
-                {/* Logo */}
-                <div style={{ textAlign: "center", marginBottom: "32px" }}>
-                    <h1 style={{ fontSize: "28px", fontWeight: "700", color: "#ffffff" }}>
+                {/* Logo / Avatar */}
+                <div style={{ textAlign: "center", marginBottom: "36px" }}>
+                    <div style={{
+                        width: "52px",
+                        height: "52px",
+                        borderRadius: "50%",
+                        backgroundColor: colors.accent,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: fonts.heading,
+                        fontSize: "22px",
+                        fontWeight: "600",
+                        color: "#1a1210",
+                        margin: "0 auto 18px auto"
+                    }}>
+                        R
+                    </div>
+                    <h1 style={{
+                        fontFamily: fonts.heading,
+                        fontSize: "26px",
+                        fontWeight: "500",
+                        color: colors.textPrimary,
+                        letterSpacing: "-0.01em"
+                    }}>
                         Tracspeed
                     </h1>
-                    <p style={{ color: "#6b7280", fontSize: "14px", marginTop: "6px" }}>
-                        {mode === "signin" ? "Welcome back" : "Create your account"}
+                    <p style={{ color: colors.textSecondary, fontSize: "14px", marginTop: "8px" }}>
+                        {mode === "signin" ? "Rex is waiting. Let's see where you left off." : "Rex remembers everything you commit to."}
                     </p>
                 </div>
 
@@ -70,77 +113,44 @@ export default function Login() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                     {mode === "signup" && (
                         <div>
-                            <label style={{ fontSize: "13px", color: "#9e9e9e", display: "block", marginBottom: "6px" }}>
-                                Name
-                            </label>
+                            <label style={labelStyle}>Name</label>
                             <input
                                 name="name"
                                 type="text"
                                 placeholder="Your name"
                                 value={form.name}
                                 onChange={handleChange}
-                                style={{
-                                    width: "100%",
-                                    padding: "10px 14px",
-                                    backgroundColor: "#0f1117",
-                                    border: "1px solid #2a2f3e",
-                                    borderRadius: "6px",
-                                    color: "#ffffff",
-                                    fontSize: "14px",
-                                    outline: "none"
-                                }}
+                                style={inputStyle}
                             />
                         </div>
                     )}
 
                     <div>
-                        <label style={{ fontSize: "13px", color: "#9e9e9e", display: "block", marginBottom: "6px" }}>
-                            Email
-                        </label>
+                        <label style={labelStyle}>Email</label>
                         <input
                             name="email"
                             type="email"
                             placeholder="you@example.com"
                             value={form.email}
                             onChange={handleChange}
-                            style={{
-                                width: "100%",
-                                padding: "10px 14px",
-                                backgroundColor: "#0f1117",
-                                border: "1px solid #2a2f3e",
-                                borderRadius: "6px",
-                                color: "#ffffff",
-                                fontSize: "14px",
-                                outline: "none"
-                            }}
+                            style={inputStyle}
                         />
                     </div>
 
                     <div>
-                        <label style={{ fontSize: "13px", color: "#9e9e9e", display: "block", marginBottom: "6px" }}>
-                            Password
-                        </label>
+                        <label style={labelStyle}>Password</label>
                         <input
                             name="password"
                             type="password"
                             placeholder="••••••••"
                             value={form.password}
                             onChange={handleChange}
-                            style={{
-                                width: "100%",
-                                padding: "10px 14px",
-                                backgroundColor: "#0f1117",
-                                border: "1px solid #2a2f3e",
-                                borderRadius: "6px",
-                                color: "#ffffff",
-                                fontSize: "14px",
-                                outline: "none"
-                            }}
+                            style={inputStyle}
                         />
                     </div>
 
                     {error && (
-                        <p style={{ color: "#f44336", fontSize: "13px" }}>{error}</p>
+                        <p style={{ color: colors.danger, fontSize: "13px" }}>{error}</p>
                     )}
 
                     <button
@@ -148,27 +158,27 @@ export default function Login() {
                         disabled={loading}
                         style={{
                             width: "100%",
-                            padding: "12px",
-                            backgroundColor: loading ? "#2a2f3e" : "#4f46e5",
-                            color: "#ffffff",
+                            padding: "13px",
+                            backgroundColor: loading ? colors.surfaceRaised : colors.accent,
+                            color: loading ? colors.textMuted : "#1a1210",
                             border: "none",
-                            borderRadius: "6px",
+                            borderRadius: radius.sm,
                             fontSize: "14px",
                             fontWeight: "600",
                             cursor: loading ? "not-allowed" : "pointer",
                             marginTop: "8px"
                         }}
                     >
-                        {loading ? "Please wait..." : mode === "signin" ? "Sign In" : "Create Account"}
+                        {loading ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account"}
                     </button>
                 </div>
 
                 {/* Toggle */}
-                <p style={{ textAlign: "center", marginTop: "24px", fontSize: "13px", color: "#6b7280" }}>
+                <p style={{ textAlign: "center", marginTop: "26px", fontSize: "13px", color: colors.textMuted }}>
                     {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
                     <span
                         onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null) }}
-                        style={{ color: "#4f46e5", cursor: "pointer", fontWeight: "600" }}
+                        style={{ color: colors.accent, cursor: "pointer", fontWeight: "600" }}
                     >
                         {mode === "signin" ? "Sign up" : "Sign in"}
                     </span>
