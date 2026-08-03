@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_mistralai import ChatMistralAI
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -43,8 +43,7 @@ def get_today_goals(user_id: str) -> str:
 
 @tool
 def get_recent_sessions(user_id: str) -> str:
-    """Retrieve the user's work sessions from the last 7 days, with the exact
-    day-span explicitly stated so timeframes are never exaggerated."""
+    """Retrieve the user's work sessions from the last 7 days, with the exact day-span explicitly stated so timeframes are never exaggerated."""
     try:
         week_ago = str(date.today() - timedelta(days=7))
         response = supabase.table("sessions").select("*").eq(
@@ -54,7 +53,6 @@ def get_recent_sessions(user_id: str) -> str:
         if not response.data:
             return "No sessions logged in the last 7 days."
 
-        # Calculate the actual span of days covered by this data
         dates = [s['logged_at'][:10] for s in response.data]
         earliest = min(dates)
         latest = max(dates)
@@ -73,10 +71,7 @@ def get_recent_sessions(user_id: str) -> str:
 
 @tool
 def get_long_term_summary(user_id: str) -> str:
-    """Retrieve a summary of the user's activity over the last 90 days,
-    including total sessions, active days, and how long they've been using
-    Tracspeed. Use this when discussing long-term consistency or streaks,
-    rather than get_recent_sessions which only covers 7 days."""
+    """Retrieve a summary of the user's activity over the last 90 days, including total sessions, active days, and how long they've been using Tracspeed. Use this when discussing long-term consistency or streaks, rather than get_recent_sessions which only covers 7 days."""
     try:
         ninety_days_ago = str(date.today() - timedelta(days=90))
         response = supabase.table("sessions").select("*").eq(
@@ -188,7 +183,6 @@ def get_llm_with_tools():
         temperature=0.7
     )
 
-    # LangChain middleware — automatically switches to fallback on primary failure
     llm_with_fallback = primary.with_fallbacks([fallback])
     return llm_with_fallback.bind_tools(tools)
 
@@ -200,7 +194,6 @@ def coach_node(state: CoachState):
     """
     llm_with_tools = get_llm_with_tools()
 
-    # Inject system prompt and user_id context so Rex knows who he's talking to
     system = SystemMessage(content=f"{SYSTEM_PROMPT}\n\nCurrent user_id: {state['user_id']}")
     messages = [system] + list(state["messages"])
 
@@ -234,7 +227,6 @@ def build_coach_graph():
         END: END
     })
 
-    # After tools execute, return to coach for final response
     graph.add_edge("tools", "coach")
 
     return graph.compile()
@@ -243,17 +235,12 @@ coach_graph = build_coach_graph()
 
 # ── Main conversation function ────────────────────────────────────────────────
 
-def chat_with_rex(user_id: str, message: str, history: list) -> str:
+def chat_with_rex(user_id: str, message: str, history: list) -> tuple[str, str]:
     """
     Send a message to Rex and get a response. The history parameter is a list of previous messages in LangChain format.
 
-    Args:
-        user_id: The authenticated user's ID
-        message: The user's current message
-        history: Previous conversation messages
-
     Returns:
-        str: Rex's response
+        tuple: (response_text, retrieved_context) where response_text is the response text and retrieved_context is a concatenated string of all tool outputs retrieved during this turn. The retrieved_context is passed to the output guardrail so it can verify Rex's response is actually grounded in real data rather than being incorrectly flagged as fabricated when it isn't.
     """
     messages = history + [HumanMessage(content=message)]
 
@@ -262,35 +249,42 @@ def chat_with_rex(user_id: str, message: str, history: list) -> str:
         "user_id": user_id
     })
 
-    # Extract the last AI message that isn't a tool call
+    response_text = "I'm having trouble responding right now. Please try again."
     for msg in reversed(result["messages"]):
         if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
-            return msg.content
+            response_text = msg.content
+            break
 
-    return "I'm having trouble responding right now. Please try again."
+    retrieved_context_parts = []
+    for msg in result["messages"][len(history) + 1:]:
+        if isinstance(msg, ToolMessage):
+            retrieved_context_parts.append(str(msg.content))
+
+    retrieved_context = "\n\n".join(retrieved_context_parts)
+
+    return response_text, retrieved_context
 
 async def stream_chat_with_rex(user_id: str, message: str, history: list):
     """
-    Stream Rex's response token by token as it's generated.
-    Yields text chunks for real-time display in the frontend.
-
-    Args:
-        user_id: The authenticated user's ID
-        message: The user's current message
-        history: Previous conversation messages
+    Stream Rex's response token by token as it's generated for real-time display in the frontend, and finally yield the retrieved tool context once streaming completes so the caller can verify the response with the output guardrail.
 
     Yields:
-        str: Individual text chunks as Rex generates the response
+        tuple: ("chunk", text) for each response chunk as it streams, then ("context", retrieved_context) exactly once at the end
     """
     messages = history + [HumanMessage(content=message)]
+    retrieved_context_parts = []
 
     async for msg, metadata in coach_graph.astream(
         {"messages": messages, "user_id": user_id},
         stream_mode="messages"
     ):
-        # Only stream content from the coach node, not tool nodes
         if metadata.get("langgraph_node") == "coach" and msg.content:
-            yield msg.content
+            yield ("chunk", msg.content)
+        elif isinstance(msg, ToolMessage):
+            retrieved_context_parts.append(str(msg.content))
+
+    retrieved_context = "\n\n".join(retrieved_context_parts)
+    yield ("context", retrieved_context)
 
 # ── Unit test ─────────────────────────────────────────────────────────────────
 
@@ -298,9 +292,10 @@ if __name__ == "__main__":
     test_user_id = "ee59e314-05d5-4e37-b01e-4d7ca910b561"
 
     print("Testing Rex coach graph...")
-    response = chat_with_rex(
+    response_text, context = chat_with_rex(
         user_id=test_user_id,
         message="Hey Rex, what did I commit to today?",
         history=[]
     )
-    print(f"\nRex: {response}")
+    print(f"\nRex: {response_text}")
+    print(f"\nRetrieved context: {context}")
