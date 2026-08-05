@@ -40,7 +40,9 @@ def save_messages(user_id: str, user_message: str, assistant_message: str):
 
     try:
         supabase.table("conversations").insert([
-            {"user_id": user_id, "role": "user", "content": user_message},
+            {"user_id": user_id, "role": "user", "content": user_message}
+        ]).execute()
+        supabase.table("conversations").insert([
             {"user_id": user_id, "role": "assistant", "content": assistant_message}
         ]).execute()
     except Exception as e:
