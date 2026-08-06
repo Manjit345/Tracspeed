@@ -16,5 +16,6 @@ dependencies = [
     "pydantic[email]>=2.13.4",
     "python-dotenv>=1.2.2",
     "supabase>=2.31.0",
+    "tavily-python>=0.7.27",
     "uvicorn>=0.51.0",
 ]

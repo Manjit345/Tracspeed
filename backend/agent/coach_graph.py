@@ -16,9 +16,12 @@ from langgraph.graph.message import add_messages
 from typing import TypedDict, Annotated, Sequence
 from db.supabase_client import supabase
 from agent.prompts import SYSTEM_PROMPT
+from tavily import TavilyClient
 from datetime import date, timedelta
 
 load_dotenv()
+
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 # ── Tools Rex can call to retrieve user data ──────────────────────────────────
 
@@ -155,6 +158,27 @@ def get_unresolved_goals(user_id: str) -> str:
     except Exception as e:
         return f"Error retrieving unresolved goals: {str(e)}"
 
+@tool
+def suggest_approach(topic: str) -> str:
+    """Search for genuinely useful, current suggestions on how to approach a specific topic, skill, or piece of work like study techniques for a hard concept, or how to structure practice for a skill. Use this ONLY when the user is asking for substantive advice on how to tackle something specific, not for tracking goals, sessions, or any personal accountability data. Never use this to look up information about the user themselves and only for general topic/approach research."""
+    try:
+        results = tavily_client.search(
+            query=f"best approach to learn or practice {topic}",
+            max_results=3,
+            search_depth="basic"
+        )
+
+        if not results.get("results"):
+            return f"No specific suggestions found for {topic}. Offer general encouragement based on what you know."
+
+        summaries = "\n".join([
+            f"- {r['title']}: {r['content'][:200]}"
+            for r in results["results"]
+        ])
+        return f"Found approaches for '{topic}':\n{summaries}\n\nSynthesize these into 1-2 concrete, actionable suggestions. Don't just list sources."
+    except Exception as e:
+        return f"Search unavailable right now. Give your best general suggestion based on your own knowledge instead: {str(e)}"
+
 # ── Graph state ───────────────────────────────────────────────────────────────
 
 class CoachState(TypedDict):
@@ -163,7 +187,7 @@ class CoachState(TypedDict):
 
 # ── LLM setup with tool binding and LangChain fallback middleware ─────────────
 
-tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns, get_unresolved_goals]
+tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns, get_unresolved_goals, suggest_approach]
 
 def get_llm_with_tools():
     """
