@@ -55,7 +55,14 @@ def send_message(message: CoachMessage, user_id: str = Depends(get_current_user)
     """
 
     try:
-        input_check = check_input(message.content)
+        history = get_conversation_history(user_id)
+        recent_context = ""
+        if history:
+            last_msg = history[-1]
+            if hasattr(last_msg, 'content'):
+                recent_context = last_msg.content
+
+        input_check = check_input(message.content, recent_context)
 
         if input_check.is_distress_signal:
             response_content = DISTRESS_FALLBACK
@@ -105,7 +112,15 @@ async def send_message_stream(message: CoachMessage, user_id: str = Depends(get_
     """
     Send a message to Rex and stream the response token by token. The input guardrail runs before streaming starts. The output guardrail runs asynchronously after the full response has streamed to the user, using the actual retrieved tool context from that turn, and if flagged, the persisted conversation history stores a corrected fallback instead of the original, so Rex's memory and future conversations are never contaminated by a flagged response.
     """
-    input_check = check_input(message.content)
+
+    history = get_conversation_history(user_id)
+    recent_context = ""
+    if history:
+        last_msg = history[-1]
+        if hasattr(last_msg, 'content'):
+            recent_context = last_msg.content
+
+    input_check = check_input(message.content, recent_context)
 
     if input_check.is_distress_signal:
         async def distress_stream():
