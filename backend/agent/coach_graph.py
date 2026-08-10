@@ -18,6 +18,7 @@ from db.supabase_client import supabase
 from agent.prompts import SYSTEM_PROMPT
 from tavily import TavilyClient
 from datetime import date, timedelta
+import re
 
 load_dotenv()
 
@@ -198,7 +199,8 @@ def get_llm_with_tools():
     primary = ChatGroq(
         model="llama-3.3-70b-versatile",
         api_key=os.getenv("GROQ_API_KEY"),
-        temperature=0.7
+        temperature=0.7,
+        max_tokens=1024
     )
 
     fallback = ChatMistralAI(
@@ -257,6 +259,14 @@ def build_coach_graph():
 
 coach_graph = build_coach_graph()
 
+# ── Utility functions ───────────────────────────────────────────────────────────────
+
+def _strip_leaked_function_syntax(text: str) -> str:
+    """
+    Removes raw <function=...>...</function> tool-call markup that can leak into visible text when Groq/Llama's function-calling format isn't fully parsed by LangChain in edge cases (e.g. truncated tool calls). This is a defensive safety net, not the primary tool-calling mechanism.
+    """
+    return re.sub(r'<function=.*?</function>', '', text, flags=re.DOTALL).strip()
+
 # ── Main conversation function ────────────────────────────────────────────────
 
 def chat_with_rex(user_id: str, message: str, history: list) -> tuple[str, str]:
@@ -276,7 +286,7 @@ def chat_with_rex(user_id: str, message: str, history: list) -> tuple[str, str]:
     response_text = "I'm having trouble responding right now. Please try again."
     for msg in reversed(result["messages"]):
         if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
-            response_text = msg.content
+            response_text = _strip_leaked_function_syntax(msg.content)
             break
 
     retrieved_context_parts = []
@@ -303,6 +313,9 @@ async def stream_chat_with_rex(user_id: str, message: str, history: list):
         stream_mode="messages"
     ):
         if metadata.get("langgraph_node") == "coach" and msg.content:
+            cleaned = _strip_leaked_function_syntax(msg.content)
+            if cleaned:
+                yield ("chunk", cleaned)
             yield ("chunk", msg.content)
         elif isinstance(msg, ToolMessage):
             retrieved_context_parts.append(str(msg.content))
