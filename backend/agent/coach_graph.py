@@ -261,11 +261,13 @@ coach_graph = build_coach_graph()
 
 # ── Utility functions ───────────────────────────────────────────────────────────────
 
-def _strip_leaked_function_syntax(text: str) -> str:
+def _strip_leaked_function_syntax(text: str, is_chunk: bool = False) -> str:
     """
     Removes raw <function=...>...</function> tool-call markup that can leak into visible text when Groq/Llama's function-calling format isn't fully parsed by LangChain in edge cases (e.g. truncated tool calls). This is a defensive safety net, not the primary tool-calling mechanism.
     """
-    return re.sub(r'<function=.*?</function>', '', text, flags=re.DOTALL).strip()
+
+    cleaned = re.sub(r'<function=.*?</function>', '', text, flags=re.DOTALL)
+    return cleaned if is_chunk else cleaned.strip()
 
 # ── Main conversation function ────────────────────────────────────────────────
 
@@ -313,10 +315,9 @@ async def stream_chat_with_rex(user_id: str, message: str, history: list):
         stream_mode="messages"
     ):
         if metadata.get("langgraph_node") == "coach" and msg.content:
-            cleaned = _strip_leaked_function_syntax(msg.content)
+            cleaned = _strip_leaked_function_syntax(msg.content, is_chunk=True)
             if cleaned:
                 yield ("chunk", cleaned)
-            yield ("chunk", msg.content)
         elif isinstance(msg, ToolMessage):
             retrieved_context_parts.append(str(msg.content))
 
