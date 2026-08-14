@@ -122,6 +122,14 @@ export const api = {
 
     getUnresolvedGoals: () => apiFetch(`${API_URL}/goals/unresolved`).then(r => r.json()),
 
+    // Profile
+    getProfile: () => apiFetch(`${API_URL}/profile/`).then(r => r.json()),
+
+    updateProfile: (data) => apiFetch(`${API_URL}/profile/`, {
+        method: "PATCH",
+        body: JSON.stringify(data)
+    }).then(r => r.json()),
+
 }
 
 // Streaming coach message — reads Server-Sent Events chunk by chunk
