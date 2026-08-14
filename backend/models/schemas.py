@@ -67,3 +67,13 @@ class PauseCreate(BaseModel):
     start_date: date
     end_date: date
     reason: Optional[str] = None
+
+#Profile Avatar Schemas
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    avatar_color: Optional[str] = None
+
+class ProfileResponse(BaseModel):
+    id: str
+    name: str
+    avatar_color: str
