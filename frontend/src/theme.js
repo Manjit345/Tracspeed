@@ -34,3 +34,12 @@ export const radius = {
     sm: "8px",
     pill: "999px",
 }
+
+export const avatarPalette = [
+    "#e2662d", // coral (default)
+    "#5b8dee", // blue
+    "#5fa870", // green
+    "#d69b3f", // amber
+    "#a86fd6", // violet
+    "#d95c5c", // red
+]

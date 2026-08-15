@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom"
-import { clearAuth, getUserName } from "../lib/supabase"
+import { clearAuth, getUserName, getAvatarColor } from "../lib/supabase"
 import { colors, fonts, radius } from "../theme"
 
 export default function Navbar() {
@@ -102,19 +102,22 @@ export default function Navbar() {
 
             <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{
-                        width: "26px",
-                        height: "26px",
-                        borderRadius: "50%",
-                        backgroundColor: colors.surfaceRaised,
-                        border: `1px solid ${colors.borderStrong}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "11px",
-                        fontWeight: "600",
-                        color: colors.textSecondary
-                    }}>
+                    <div
+                        onClick={() => navigate("/profile")}
+                        style={{
+                            width: "26px",
+                            height: "26px",
+                            borderRadius: "50%",
+                            backgroundColor: getAvatarColor(),
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            color: "#1a1210",
+                            cursor: "pointer"
+                        }}
+                    >
                         {userName ? userName.charAt(0).toUpperCase() : "?"}
                     </div>
                     <span style={{ color: colors.textSecondary, fontSize: "14px" }}>{userName}</span>
