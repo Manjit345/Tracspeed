@@ -27,7 +27,10 @@ export default function Navbar() {
             padding: "0 32px",
             height: "68px",
             backgroundColor: colors.surface,
-            borderBottom: `1px solid ${colors.border}`
+            borderBottom: `1px solid ${colors.border}`,
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
         }}>
             <div style={{ display: "flex", alignItems: "center", gap: "48px" }}>
                 {/* Brand */}
