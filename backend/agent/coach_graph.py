@@ -1,6 +1,6 @@
 """
 Coach Graph: LangGraph reasoning loop for Rex, Tracspeed's AI accountability coach. Rex uses tool binding to retrieve user data before responding, ensuring every response is grounded in the user's actual history rather than assumptions.
-Primary model: Groq (Llama 3.3 70B) with a natural conversational tone.
+Primary model: Groq (GPT-OSS 120B) with a natural conversational tone.
 Fallback model: Mistral (mistral-small-latest) via LangChain middleware.
 """
 
@@ -193,11 +193,11 @@ tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_comple
 def get_llm_with_tools():
     """
     Returns a LangChain LLM chain with tool binding and automatic fallback.
-    Groq (Llama 3.3 70B) is the primary model for natural conversational tone.
+    GPT-OSS 120B (via Groq) is the primary model for natural conversational tone.
     Mistral (mistral-small-latest) is the fallback via LangChain .with_fallbacks() middleware. If Groq fails for any reason, LangChain automatically retries with Mistral without any manual intervention.
     """
     primary = ChatGroq(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.7,
         max_tokens=1024
