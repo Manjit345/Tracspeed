@@ -180,6 +180,49 @@ def suggest_approach(topic: str) -> str:
     except Exception as e:
         return f"Search unavailable right now. Give your best general suggestion based on your own knowledge instead: {str(e)}"
 
+@tool
+def update_goal(user_id: str, goal_description_hint: str, new_duration: int = None, new_status: str = None) -> str:
+    """Update an existing goal's target duration and/or status. Use this whenever the user asks to change, adjust, increase, decrease, or update a goal's time target, or mark it as completed/partial/missed through conversation. goal_description_hint should be a short phrase matching part of the goal's description (e.g. "transformer architecture") so the correct goal can be found. Only call this after confirming with the user exactly what should change and never guess the new value."""
+    try:
+        # Find the goal by matching the hint against unresolved/today's goals
+        response = supabase.table("goals").select("*").eq(
+            "user_id", user_id
+        ).in_("status", ["pending", "partial"]).execute()
+
+        matches = [
+            g for g in response.data
+            if goal_description_hint.lower() in g["description"].lower()
+        ]
+
+        if not matches:
+            return f"No matching goal found for '{goal_description_hint}'. Ask the user to clarify which goal they mean."
+
+        if len(matches) > 1:
+            names = ", ".join([g["description"] for g in matches])
+            return f"Multiple goals match '{goal_description_hint}': {names}. Ask the user to specify which one."
+
+        goal = matches[0]
+        update_data = {}
+        if new_duration is not None:
+            update_data["target_duration"] = new_duration
+        if new_status is not None:
+            update_data["status"] = new_status
+
+        if not update_data:
+            return "No changes specified. Ask the user what they want to update."
+
+        supabase.table("goals").update(update_data).eq("id", goal["id"]).execute()
+
+        changes = []
+        if new_duration is not None:
+            changes.append(f"duration set to {new_duration} minutes")
+        if new_status is not None:
+            changes.append(f"status set to {new_status}")
+
+        return f"Successfully updated '{goal['description']}': {', '.join(changes)}. This is now saved."
+    except Exception as e:
+        return f"Failed to update goal: {str(e)}. Tell the user the update didn't go through and they should try again or use the Check In page."
+
 # ── Graph state ───────────────────────────────────────────────────────────────
 
 class CoachState(TypedDict):
@@ -188,7 +231,7 @@ class CoachState(TypedDict):
 
 # ── LLM setup with tool binding and LangChain fallback middleware ─────────────
 
-tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns, get_unresolved_goals, suggest_approach]
+tools = [get_today_goals, get_recent_sessions, get_long_term_summary, get_completion_rate, get_patterns, get_unresolved_goals, suggest_approach, update_goal]
 
 def get_llm_with_tools():
     """
