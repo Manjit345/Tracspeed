@@ -219,7 +219,7 @@ def update_goal(user_id: str, goal_description_hint: str, new_duration: int = No
         if new_status is not None:
             changes.append(f"status set to {new_status}")
 
-        return f"Successfully updated '{goal['description']}': {', '.join(changes)}. This is now saved."
+        return f"Updated goal '{goal['description']}' (originally set for {goal.get('date', 'unknown date')}): {', '.join(changes)}. Confirm this is the correct goal with the user if there's any ambiguity that is if this is the wrong goal, call update_goal again with a more specific hint."
     except Exception as e:
         return f"Failed to update goal: {str(e)}. Tell the user the update didn't go through and they should try again or use the Check In page."
 
