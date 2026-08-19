@@ -23,7 +23,7 @@ app.include_router(profile_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  #temporary before vercel deployment
+    allow_origins=["https://tracspeed.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
