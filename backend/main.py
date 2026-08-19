@@ -23,7 +23,7 @@ app.include_router(profile_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],  #temporary before vercel deployment
     allow_methods=["*"],
     allow_headers=["*"],
 )
