@@ -1,6 +1,6 @@
 import { getToken, getRefreshToken, setAuth, clearAuth } from "./supabase"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://tracspeed.onrender.com"
+const API_URL = import.meta.env.VITE_API_URL || "https://tracspeed.onrender.com"
 
 const getHeaders = () => {
     const token = getToken()
