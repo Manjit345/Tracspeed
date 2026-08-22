@@ -156,7 +156,9 @@ async def send_message_stream(message: CoachMessage, user_id: str = Depends(get_
             elif item_type == "context":
                 retrieved_context = content
 
-        output_check = check_output(full_response, retrieved_context)
+        recent_history_text = "\n".join([f"{msg.type}: {msg.content}" for msg in history[-6:]])
+
+        output_check = check_output(full_response, retrieved_context, recent_history_text)
 
         if output_check.is_shaming or output_check.gives_medical_advice or output_check.encourages_overwork or output_check.fabricates_unverified_history:
             print(f"Output guardrail triggered for user {user_id}: {output_check.reasoning}")

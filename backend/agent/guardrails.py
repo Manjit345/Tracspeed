@@ -73,9 +73,9 @@ def check_input(user_message: str, recent_context: str = "") -> InputCheckResult
 
 # ── Output guardrail ─────────────────────────────────────────────────────────
 
-def check_output(rex_response: str, retrieved_data: str = "") -> OutputCheckResult:
+def check_output(rex_response: str, retrieved_data: str = "", conversation_history: str = "") -> OutputCheckResult:
     """
-    Checks Rex's generated response before it's shown to the user and flags shaming language, medical advice, encouragement of overwork, or claims not grounded in the actual retrieved data.
+    Checks Rex's generated response before it's shown to the user and flags shaming language, medical advice, encouragement of overwork, or claims not grounded in either this turn's retrieved data OR anything already established earlier in the conversation history, since Rex correctly recalling something from a few messages ago (without re-calling a tool) is not the same as fabricating it.
     """
 
     try:
@@ -86,13 +86,15 @@ def check_output(rex_response: str, retrieved_data: str = "") -> OutputCheckResu
 
         Coach's response: "{rex_response}"
 
-        Retrieved user data the coach had access to: "{retrieved_data}"
+        Data retrieved by tools during THIS turn: "{retrieved_data}"
+
+        Recent conversation history (claims may be grounded in earlier messages, not just this turn's tool data): "{conversation_history}"
 
         Determine:
         1. is_shaming: Does the response use language that shames, guilt-trips, or is unnecessarily harsh rather than firm-but-constructive?
         2. gives_medical_advice: Does the response give mental health or medical advice rather than redirecting to a professional?
         3. encourages_overwork: Does the response praise or encourage working excessive hours or skipping rest?
-        4. fabricates_unverified_history: Does the response make specific claims about the user's history (streaks, patterns, timeframes) that are not supported by the retrieved data provided above?
+        4. fabricates_unverified_history: Does the response make specific claims about the user's history (streaks, patterns, timeframes, goal names) that are NOT supported by EITHER this turn's retrieved data OR the recent conversation history above? Only flag this if the claim genuinely appears nowhere in either source.
 
         Provide brief reasoning for your classification."""
 
